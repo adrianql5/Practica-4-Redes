@@ -5,8 +5,23 @@
 #include <arpa/inet.h>
 #include <errno.h>
 
-void transFormarIp(){
+void transFormarIp(char *str){
+    int contador=0;
+    for(int i=0; i<strlen(str); i++){
+        if(str[i]=='.'){
+            contador++;
+        }
+    }
 
+    if(contador==0){
+        strcat(str,".0.0.0");
+    }
+    else if(contador==1){
+        strcat(str,".0.0");
+    }
+    else if(contador==2){
+        strcat(str,".0");
+    }
 }
 
 int main(int argc, char *argv[]) {
@@ -15,19 +30,17 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    uint8_t sufijo;
-    struct in_addr mired ;
 
-    char * IPEntrante;
-    IPEntrante=(char*) malloc(sizeof(strlen(argv[2])));
+    char IPEntrante[50];
+    strcpy(IPEntrante,argv[2]);
+
+    printf("%s\n", IPEntrante);
+
+    transFormarIp(IPEntrante);
 
 
-    mired.s_addr = 0;
-    if((sufijo = inet_net_pton ( AF_INET , "193.20.102.40/14" , ( void * ) &mired , sizeof ( struct in_addr ) ) ) < 0) {
-        fprintf ( stderr , "Formato de direccion incorrecto " ) ;
-        exit( EXIT_FAILURE ) ;
-    }
-    printf ( " %X %u \n" , mired.s_addr , sufijo) ;
+    printf("%s", IPEntrante);
+
 
     return EXIT_SUCCESS;
 }
