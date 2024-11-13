@@ -1,27 +1,76 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <arpa/inet.h>
-#include <errno.h>
 
-void transFormarIp(char *str){
-    int contador=0;
-    for(int i=0; i<strlen(str); i++){
-        if(str[i]=='.'){
-            contador++;
+typedef struct {
+    struct in_addr ip;       /* Dirección IP de la ruta */
+    int longitudPrefijo;     /* Longitud del prefijo de la ruta */
+    int nInterfaz;           /* Número de interfaz de salida */
+} Ruta;
+
+int evaluarPrefijoLargo(struct in_addr ip, const char *filename) {
+    FILE *file = fopen(filename, "r");
+    if (!file) {
+        perror("Error al abrir el archivo de tabla de reenvío");
+        return -1;
+    }
+
+    /* Inicializamos la mejor ruta con un prefijo no válido */
+    Ruta mejorRuta = {.longitudPrefijo = -1, .nInterfaz = 0};
+
+    char line[100];
+
+    while (fgets(line, sizeof(line), file)) {
+        Ruta entrada;
+        char ipArchivo[INET_ADDRSTRLEN + 3];
+
+        /* Extraemos IP, longitud de prefijo y número de interfaz de la línea */
+        if (sscanf(line, "%15[^/]/%d,%d", ipArchivo, &entrada.longitudPrefijo, &entrada.nInterfaz) < 3) {
+            fprintf(stderr, "Formato incorrecto en la línea: %s", line);
+            fclose(file);
+            exit(EXIT_FAILURE);
+        }
+
+        /* Convertimos la IP de la tabla en formato texto a formato binario */
+        if (inet_net_pton(AF_INET, ipArchivo, &entrada.ip, sizeof(entrada.ip)) < 0) {
+            fprintf(stderr, "Formato de dirección incorrecto: %s\n", ipArchivo);
+            fclose(file);
+            exit(EXIT_FAILURE);
+        }
+
+        /*
+         * Calculamos la máscara a partir de la longitud del prefijo.
+         * Primero, usamos `~0U` para crear un entero de 32 bits con todos los bits en 1.
+         * Luego, desplazamos estos bits a la izquierda por (32 - entrada.longitudPrefijo) para
+         * dejar en 1 solo los primeros `entrada.longitudPrefijo` bits, creando así la máscara.
+         * Finalmente, usamos `htonl` para convertir este valor al orden de bytes de red.
+         */
+        uint32_t mask = htonl(~0U << (32 - entrada.longitudPrefijo));
+
+        /*
+         * Realizamos una operación AND entre la IP de entrada y la máscara.
+         * Luego comparamos el resultado con la IP de la ruta en la tabla ANDeada con la máscara.
+         * Si coinciden, significa que la IP de entrada coincide con el prefijo de la ruta.
+         */
+        if ((ip.s_addr & mask) == (entrada.ip.s_addr & mask)) {
+
+            /*
+             * Si la entrada actual tiene un prefijo más largo que el mejor encontrado hasta ahora,
+             * actualizamos `mejorRuta` con esta entrada.
+             */
+            if (entrada.longitudPrefijo > mejorRuta.longitudPrefijo) {
+                mejorRuta = entrada;
+            }
         }
     }
 
-    if(contador==0){
-        strcat(str,".0.0.0");
-    }
-    else if(contador==1){
-        strcat(str,".0.0");
-    }
-    else if(contador==2){
-        strcat(str,".0");
-    }
+    fclose(file);
+
+    printf("Interfaz de salida: %d\n", mejorRuta.nInterfaz);
+    printf("Bits del prefijo correspondiente: %d\n", mejorRuta.longitudPrefijo);
+
+    return mejorRuta.nInterfaz;
 }
 
 int main(int argc, char *argv[]) {
@@ -30,17 +79,13 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
+    struct in_addr ip;
+    if (inet_pton(AF_INET, argv[2], &ip) <= 0) {
+        fprintf(stderr, "Dirección IP de entrada inválida: %s\n", argv[2]);
+        return EXIT_FAILURE;
+    }
 
-    char IPEntrante[50];
-    strcpy(IPEntrante,argv[2]);
-
-    printf("%s\n", IPEntrante);
-
-    transFormarIp(IPEntrante);
-
-
-    printf("%s", IPEntrante);
-
+    evaluarPrefijoLargo(ip, argv[1]);
 
     return EXIT_SUCCESS;
 }
