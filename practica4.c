@@ -3,13 +3,20 @@
 #include <stdlib.h>
 #include <arpa/inet.h>
 
+/*
+ *
+ * Adrián Quiroga Linares
+ * Clara Yuemí Rodríguez Rodríguez
+ *
+ */
+
 typedef struct {
     struct in_addr ip;       /* Dirección IP de la ruta */
     int longitudPrefijo;     /* Longitud del prefijo de la ruta */
     int nInterfaz;           /* Número de interfaz de salida */
 } Ruta;
 
-int evaluarPrefijoLargo(struct in_addr ip, const char *filename) {
+int evaluarPrefijoLargo (struct in_addr ip, const char *filename) {
     FILE *file = fopen(filename, "r");
     if (!file) {
         perror("Error al abrir el archivo de tabla de reenvío");
@@ -17,7 +24,7 @@ int evaluarPrefijoLargo(struct in_addr ip, const char *filename) {
     }
 
     /* Inicializamos la mejor ruta con un prefijo no válido */
-    Ruta mejorRuta = {.longitudPrefijo = -1, .nInterfaz = 0};
+    Ruta mejorRuta = {.ip.s_addr = 0, .longitudPrefijo = 0, .nInterfaz = 0};
 
     char line[100];
 
@@ -80,8 +87,8 @@ int main(int argc, char *argv[]) {
     }
 
     struct in_addr ip;
-    if (inet_pton(AF_INET, argv[2], &ip) <= 0) {
-        fprintf(stderr, "Dirección IP de entrada inválida: %s\n", argv[2]);
+    if (!(inet_pton(AF_INET, argv[2], &ip))) {
+        fprintf(stderr, "Dirección IP de entrada (%s) no válida.\n", argv[2]);
         return EXIT_FAILURE;
     }
 
